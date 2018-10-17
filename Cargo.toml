@@ -19,4 +19,4 @@ include = [
 ]
 
 [dependencies]
-embedded-hal = "0.2"
+embedded-hal = { git = "https://github.com/rust-embedded/embedded-hal", branch = "master" }
