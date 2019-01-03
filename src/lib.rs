@@ -26,3 +26,4 @@ pub mod common;
 pub mod i2c;
 pub mod spi;
 pub mod delay;
+pub mod gpio;
