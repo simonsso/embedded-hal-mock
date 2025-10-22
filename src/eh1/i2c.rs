@@ -269,8 +269,7 @@ impl I2c for Mock {
             match op {
                 i2c::Operation::Read(r) => self.read(address, r),
                 i2c::Operation::Write(w) => self.write(address, w),
-            }
-            .unwrap();
+            }?;
         }
 
         let w = self
@@ -499,6 +498,24 @@ mod test {
             i2c.done();
         }
 
+        #[test]
+        fn write_transaction_with_write_error() {
+            let expectations = [
+                Transaction::transaction_start(0x76),
+                Transaction::write(0x76, vec![0x88]).with_error(ErrorKind::Other),
+                // Transaction::transaction_end(0x76),  // NOTE: This token never gets consumed
+            ];
+            let mut i2c = Mock::new(&expectations);
+
+            let mut operations = [i2c::Operation::Write(&[0x88])];
+
+            assert_eq!(
+                i2c.transaction(0x76, &mut operations),
+                Err(ErrorKind::Other)
+            );
+
+            i2c.done();
+        }
         /// The transaction mode should still be validated.
         #[test]
         #[should_panic(expected = "i2c::read unexpected mode")]
