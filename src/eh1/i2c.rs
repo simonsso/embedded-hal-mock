@@ -74,6 +74,8 @@ pub enum Mode {
     TransactionStart,
     /// Mark the end of a transaction
     TransactionEnd,
+    /// Expect something to be written but ignore the contents
+    WriteIgnore,
 }
 
 /// I2C Transaction type
@@ -97,6 +99,16 @@ impl Transaction {
     pub fn write(addr: u8, expected: Vec<u8>) -> Transaction {
         Transaction {
             expected_mode: Mode::Write,
+            expected_addr: addr,
+            expected_data: expected,
+            response_data: Vec::new(),
+            expected_err: None,
+        }
+    }
+    /// Expect data to be written but dont care about contents.
+    pub fn write_ignore(addr: u8, expected: Vec<u8>) -> Transaction {
+        Transaction {
+            expected_mode: Mode::WriteIgnore,
             expected_addr: addr,
             expected_data: expected,
             response_data: Vec::new(),
@@ -201,13 +213,14 @@ impl I2c for Mock {
             .next()
             .expect("no pending expectation for i2c::write call");
 
-        assert_eq!(e.expected_mode, Mode::Write, "i2c::write unexpected mode");
-        assert_eq!(e.expected_addr, address, "i2c::write address mismatch");
-        assert_eq!(
-            e.expected_data, bytes,
-            "i2c::write data does not match expectation"
-        );
-
+        if e.expected_mode != Mode::WriteIgnore {
+            assert_eq!(e.expected_mode, Mode::Write, "i2c::write unexpected mode");
+            assert_eq!(e.expected_addr, address, "i2c::write address mismatch");
+            assert_eq!(
+                e.expected_data, bytes,
+                "i2c::write data does not match expectation"
+            );
+        }
         match e.expected_err {
             Some(err) => Err(err),
             None => Ok(()),
@@ -327,6 +340,20 @@ mod test {
         let mut i2c = Mock::new(&expectations);
 
         i2c.write(0xaa, &vec![10, 12]).unwrap();
+
+        i2c.done();
+    }
+
+    #[test]
+    fn write_ignore() {
+        let expectations = [
+            Transaction::write_ignore(0xaa, vec![]),
+            Transaction::write(0xaa, vec![0, 0x55]),
+        ];
+        let mut i2c = Mock::new(&expectations);
+
+        i2c.write(0xaa, &vec![10, 11, 12]).unwrap();
+        i2c.write(0xaa, &vec![0, 0x55]).unwrap();
 
         i2c.done();
     }
